@@ -1,0 +1,422 @@
+:root {
+  --navy: #000a3e;
+  --ink: #0f1221;
+  --muted: #5c6b7f;
+  --line: #d8dee8;
+  --paper: #f4f6fa;
+  --card: #ffffff;
+  --blue: #4b8bf5;
+  --shadow: 0 12px 34px rgba(15, 18, 33, 0.18);
+
+  --bar: 60px;
+  --safe-t: env(safe-area-inset-top);
+  --safe-b: env(safe-area-inset-bottom);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;              /* the map owns the window */
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ── the map ──────────────────────────────────────────────── */
+
+.stage {
+  position: fixed;
+  inset: 0;
+  touch-action: none;
+  background:
+    radial-gradient(circle at 1px 1px, #e1e7f1 1px, transparent 0) 0 0 / 26px 26px;
+}
+
+#graph {
+  display: block;
+  width: 100%; height: 100%;
+  opacity: 1;
+  transition: opacity .22s ease;
+}
+
+/* While the layout settles the map is blank, so nobody watches it writhe. */
+.stage.is-settling #graph { opacity: 0; transition: none; }
+
+.stage.is-slow::after {
+  content: "Laying out6";
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  font-size: 15px;
+}
+#graph text { user-select: none; -webkit-user-select: none; pointer-events: none; }
+
+.node { cursor: grab; }
+/* A tap should not leave a focus box; keyboard users still get a ring. */
+.node:focus { outline: none; }
+.node:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 4px; }
+.node:active { cursor: grabbing; }
+.node .halo { opacity: 0; transition: opacity .12s ease; }
+.node.is-selected .halo { opacity: 1; }
+
+.empty {
+  position: fixed;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  max-width: 78vw;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* ── top bar ──────────────────────────────────────────────── */
+
+.topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 30;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: calc(10px + var(--safe-t)) 12px 10px;
+  background: linear-gradient(to bottom, var(--paper) 62%, transparent);
+}
+
+.search-wrap { position: relative; flex: 1; min-width: 0; max-width: 620px; }
+
+#search {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;                 /* keeps iOS from zooming on focus */
+  padding: 12px 42px 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  -webkit-appearance: none;
+}
+
+#search:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(75, 139, 245, .18), var(--shadow);
+}
+
+#search::-webkit-search-cancel-button { display: none; }
+
+.icon-btn {
+  flex: none;
+  width: 46px; height: 46px;
+  display: grid;
+  place-items: center;
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--ink);
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.icon-btn svg { width: 24px; height: 24px; }
+
+.icon-btn.inline {
+  position: absolute;
+  right: 4px; top: 50%;
+  transform: translateY(-50%);
+  width: 34px; height: 34px;
+  font-size: 22px;
+  border: 0;
+  box-shadow: none;
+  background: none;
+  color: var(--muted);
+}
+
+/* ── menu ─────────────────────────────────────────────────── */
+
+.menu {
+  position: absolute;
+  top: calc(100% - 2px);
+  right: 12px;
+  min-width: 168px;
+  padding: 6px;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+}
+
+.menu[hidden] { display: none; }   /* display:flex above would defeat [hidden] */
+
+.menu button {
+  font: inherit;
+  text-align: left;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.menu button:hover { background: #eef3fd; }
+.menu button.is-current { font-weight: 700; color: var(--blue); }
+
+/* ── results ──────────────────────────────────────────────── */
+
+.results {
+  position: absolute;
+  z-index: 5;
+  left: 0; right: 0; top: calc(100% + 6px);
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  max-height: min(56vh, 420px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.results li {
+  padding: 11px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.results li:hover { background: #eef3fd; }
+.results .code { font-weight: 700; color: var(--navy); white-space: nowrap; }
+.results .title {
+  color: var(--muted); font-size: 14px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.results .none { color: var(--muted); cursor: default; }
+.results .none:hover { background: none; }
+
+/* ── map tools ────────────────────────────────────────────── */
+
+.map-tools {
+  position: fixed;
+  z-index: 20;
+  left: 12px;
+  bottom: calc(14px + var(--safe-b));
+  display: flex;
+  gap: 8px;
+}
+
+.pill {
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.pill.wide { width: 100%; border-radius: 12px; padding: 13px; margin-top: 8px; }
+
+/* ── bottom sheet ─────────────────────────────────────────── */
+
+.sheet {
+  position: fixed;
+  z-index: 40;
+  left: 0; right: 0; bottom: 0;
+  max-height: 62vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 18px 18px calc(20px + var(--safe-b));
+  background: var(--card);
+  border-top: 1.5px solid var(--line);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -14px 40px rgba(15, 18, 33, .2);
+  animation: rise .16s ease-out;
+}
+
+@keyframes rise { from { transform: translateY(14px); opacity: 0; } }
+
+.sheet-close {
+  position: absolute;
+  top: 10px; right: 12px;
+  width: 36px; height: 36px;
+  font-size: 22px;
+  border: 0;
+  box-shadow: none;
+  background: none;
+  color: var(--muted);
+}
+
+.sheet-body { padding-right: 40px; }
+.sheet h2 { margin: 0 0 2px; font-size: 19px; color: var(--navy); line-height: 1.25; }
+.sheet .sub { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
+.sheet p { margin: 0 0 10px; font-size: 15px; }
+.sheet p:last-child { margin-bottom: 0; }
+.sheet .note { font-size: 14px; color: var(--muted); }
+
+.tag {
+  display: inline-block;
+  font-size: 12px; font-weight: 700; letter-spacing: .02em;
+  padding: 3px 9px; border-radius: 999px; margin: 0 6px 6px 0;
+  background: #eef3fd; color: #2f5fb0;
+}
+.tag.warn { background: #fdf2e0; color: #8a6114; }
+.tag.off  { background: #eef0f4; color: #55647a; }
+
+.sheet .pill { margin-top: 4px; }
+
+@media (min-width: 720px) {
+  .sheet {
+    left: 12px; right: auto;
+    bottom: calc(12px + var(--safe-b));
+    width: 420px;
+    max-height: 58vh;
+    border-radius: 16px;
+    border: 1.5px solid var(--line);
+  }
+  .map-tools { left: auto; right: 12px; }
+}
+
+/* ── about ────────────────────────────────────────────────── */
+
+.about-view {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--paper);
+  padding: calc(var(--bar) + 18px + var(--safe-t)) 18px calc(40px + var(--safe-b));
+}
+
+.about-inner { max-width: 660px; margin: 0 auto; }
+
+.about-view h1 { margin: 0 0 10px; font-size: clamp(22px, 6vw, 30px); color: var(--navy); line-height: 1.2; }
+.about-view h2 {
+  margin: 26px 0 10px;
+  font-size: 15px; letter-spacing: .06em; text-transform: uppercase; color: var(--navy);
+}
+.about-view p { margin: 0 0 12px; font-size: 15px; }
+.about-view .lede { color: var(--muted); font-size: 16px; }
+.about-view a { color: var(--blue); }
+
+.legend { margin: 0; padding: 0; list-style: none; }
+.legend li { display: flex; gap: 11px; align-items: flex-start; padding: 7px 0; font-size: 15px; }
+.key { width: 26px; height: 26px; flex: none; margin-top: 1px; }
+
+.shot { margin: 0 0 14px; }
+
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: #0b1020;
+}
+
+.shot figcaption {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.contact {
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.contact li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 15px;
+}
+
+.contact .icon {
+  width: 19px;
+  height: 19px;
+  flex: none;
+  color: var(--muted);
+}
+
+.contact a { color: var(--blue); text-decoration: none; }
+.contact a:hover { text-decoration: underline; }
+
+.colophon {
+  color: var(--muted);
+  font-size: 13.5px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.colophon + .shot { margin: 0 0 14px; }
+
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: #0b1020;
+}
+
+.shot figcaption {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.colophon { padding-top: 0; border-top: 0; }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0b1020;
+    --card: #131a2e;
+    --ink: #e8edf6;
+    --muted: #93a1b8;
+    --line: #26304a;
+    --navy: #cdd9f5;
+    --shadow: 0 12px 34px rgba(0, 0, 0, .45);
+  }
+  .stage { background-image: radial-gradient(circle at 1px 1px, #1d2740 1px, transparent 0); }
+  .menu button:hover, .results li:hover { background: #1b2540; }
+  .tag { background: #1b2540; color: #9dbcf5; }
+  .tag.warn { background: #33280f; color: #e5be6a; }
+  .tag.off  { background: #1a2136; color: #8d9ab2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet { animation: none; }
+}
+
+.sheet .flow { font-size: 14.5px; }
+.sheet .flow b { color: var(--navy); }
+.sheet .flow i { color: var(--muted); }
