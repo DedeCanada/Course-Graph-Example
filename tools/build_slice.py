@@ -77,20 +77,84 @@ def build(graph: dict, subject: str) -> dict:
     out_logic = [logic[n] for n in sorted(n for n in kept if n in logic)]
     node_ids = {c["id"] for c in out_courses} | {n["id"] for n in out_logic}
 
+    out_edges = [e for e in kept_edges if e["s"] in node_ids and e["t"] in node_ids]
+    out_logic, out_edges = simplify_operators(out_logic, out_edges)
+    node_ids = {c["id"] for c in out_courses} | {n["id"] for n in out_logic}
+    out_edges = [e for e in out_edges if e["s"] in node_ids and e["t"] in node_ids]
+
     subjects = sorted({c["s"] for c in out_courses})
+    # Equivalencies and exclusions are deliberately dropped. They say what a
+    # course cannot be taken *with*, not what it needs, so on a map of
+    # prerequisites they are a second kind of relationship competing for the
+    # reader's attention. The viewer never read them either.
     return {
         "subject": subject,
         "courses": out_courses,
         "logicNodes": out_logic,
-        "edges": [e for e in kept_edges if e["s"] in node_ids and e["t"] in node_ids],
-        "eqExclEdges": [
-            e for e in graph["eqExclEdges"]
-            if e["s"] in node_ids and e["t"] in node_ids
-        ],
+        "edges": out_edges,
         "subjectColors": {
             s: graph["subjectColors"][s] for s in subjects if s in graph["subjectColors"]
         },
     }
+
+
+def simplify_operators(logic_nodes, edges):
+    """Drop operators that no longer join anything, and collapse those left
+    holding a single branch.
+
+    Dropping equivalencies and exclusions leaves operators behind. CPSC 203
+    states "one of seven courses" *and* "not for students with credit for
+    CPSC 210 or CPEN 221"; the exclusion goes, and the conjunction is left
+    wrapping one choice. An AND with one branch is that branch, and an OF with
+    one branch is "one of one" -- both draw a shape the reader has to interpret
+    and that means nothing.
+
+    Repeated until stable, since collapsing one can empty or orphan the next.
+    """
+    kinds = {n["id"]: n["tp"] for n in logic_nodes}
+    removed = set()
+
+    while True:
+        children = {}
+        parents = {}
+        for e in edges:
+            if e["s"] in removed or e["t"] in removed:
+                continue
+            children.setdefault(e["t"], []).append(e)
+            parents.setdefault(e["s"], []).append(e)
+
+        changed = False
+        for node_id, kind in kinds.items():
+            if node_id in removed or kind not in ("AND", "OF"):
+                continue
+            own = children.get(node_id, [])
+            if len(own) > 1:
+                continue
+
+            if own:
+                # One branch: hand it straight to whatever this fed.
+                child = own[0]["s"]
+                for up in parents.get(node_id, []):
+                    edges.append({"s": child, "t": up["t"], "r": up.get("r")})
+            removed.add(node_id)
+            changed = True
+
+        edges = [
+            e for e in edges if e["s"] not in removed and e["t"] not in removed
+        ]
+        if not changed:
+            break
+
+    seen = set()
+    deduped = []
+    for e in edges:
+        key = (e["s"], e["t"], e.get("r"))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(e)
+
+    return [n for n in logic_nodes if n["id"] not in removed], deduped
 
 
 def main() -> int:

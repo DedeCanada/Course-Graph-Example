@@ -73,8 +73,13 @@ export function indexGraph(data) {
     outgoing.get(e.s).push(e);
   }
 
+  // Discontinued courses stay in the graph, because other courses still name
+  // them as prerequisites and the requirement above them would make no sense
+  // without them. They are kept out of the search list: they have no title, no
+  // description and no calendar entry, so choosing one deliberately gets you a
+  // blank node and nothing to read.
   const pickable = data.courses
-    .filter(c => c.s === data.subject && !c.boundary)
+    .filter(c => c.s === data.subject && !c.boundary && !c.phantom)
     .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
 
   return { data, byId, incoming, outgoing, pickable };
@@ -201,7 +206,7 @@ export function layout(index, sub) {
  * which settles faster and lands somewhere readable. Coordinates are centred
  * on the origin, because gravity in physics.js pulls toward (0, 0).
  */
-export function seedPositions(index, sub) {
+export function seedPositions(index, sub, random = Math.random) {
   const laid = layout(index, sub);
   const box = bounds(laid);
   const cx = box ? (box.minX + box.maxX) / 2 : 0;
@@ -212,8 +217,8 @@ export function seedPositions(index, sub) {
     // A touch of jitter keeps nodes stacked at the same seed point from
     // starting exactly on top of each other, where repulsion has no direction.
     out.set(id, {
-      x: p.x - cx + (Math.random() - 0.5) * 2,
-      y: p.y - cy + (Math.random() - 0.5) * 2,
+      x: p.x - cx + (random() - 0.5) * 2,
+      y: p.y - cy + (random() - 0.5) * 2,
     });
   }
   return out;

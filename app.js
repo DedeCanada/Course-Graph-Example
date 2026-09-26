@@ -589,7 +589,8 @@ function select(id) {
     el.sheetBody.append(h, para(n.f || '', 'sub'));
 
     const tags = document.createElement('p');
-    if (n.boundary) tags.append(tag('Outside Computer Science', 'off'));
+    if (n.phantom) tags.append(tag('No longer in the Calendar', 'warn'));
+    else if (n.boundary) tags.append(tag('Outside Computer Science', 'off'));
     else if (n.logicStatus === 'parsed') tags.append(tag('Requirements read from the Calendar'));
     else if (n.logicStatus === 'none') tags.append(tag('No requirements stated', 'off'));
     else tags.append(tag('Requirements could not be confirmed', 'warn'));
@@ -598,7 +599,13 @@ function select(id) {
 
     if (n.d) el.sheetBody.append(para(n.d, 'desc'));
 
-    if (n.boundary) {
+    if (n.phantom) {
+      el.sheetBody.append(para(
+        'Another course still names this one as a prerequisite, so it is drawn '
+        + 'here, but it has no entry in the current Calendar to describe.',
+        'note',
+      ));
+    } else if (n.boundary) {
       el.sheetBody.append(para(
         'This is a prerequisite from another subject. This page describes it but '
         + 'does not follow its own prerequisites — those are outside the slice.',
@@ -809,7 +816,9 @@ function startingCourse() {
   return index.pickable[0]?.id;
 }
 
-fetch('graph.json')
+// revalidate rather than replay: a rebuilt graph.json otherwise sits behind a
+// cached copy in an already-open tab, and the map quietly shows stale structure
+fetch('graph.json', { cache: 'no-cache' })
   .then(res => {
     if (!res.ok) throw new Error(`graph.json returned HTTP ${res.status}`);
     return res.json();

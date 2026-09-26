@@ -36,6 +36,23 @@ else — no pipeline, no models, no keys, no scraper.
 That last rule is what keeps the slice small and is checked by the tests: a
 course marked `boundary` must carry no prerequisites of its own.
 
+Three things are deliberately left out or cleaned up on the way in:
+
+- **Equivalencies and exclusions.** They say what a course cannot be taken
+  *with*, not what it needs, so on a map of prerequisites they are a second
+  kind of relationship competing for attention. The viewer never read them.
+- **Operators left holding fewer than two branches.** Dropping the exclusions
+  strands them: CPSC 203 states "one of seven courses" *and* an exclusion, so
+  the conjunction was left wrapping a single choice, and CPSC 103 — whose entry
+  is nothing but exclusions — was left with an empty one. An `AND` with one
+  branch is that branch; an `OF` with one is "one of one". Both are collapsed,
+  repeatedly, since collapsing one can strand the next. A test holds every
+  operator on the map to at least two branches.
+- **Discontinued courses** stay on the graph, because courses that still exist
+  name them as prerequisites, but they are kept out of the search list. CPSC
+  260, 261 and 301 have no title, faculty or description, so choosing one
+  deliberately would get you a blank node and nothing to read.
+
 ## How to read the picture
 
 | Shape | Meaning |
